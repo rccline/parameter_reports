@@ -1,0 +1,183 @@
+---
+title: ""
+author: ""
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+params:
+  MyID: "1"
+  FullName: "David Edwards"
+  LastName: "Edwards"
+  Address: "548 Hillview Drive"
+  City: "Chattanooga"
+  STATE: "TN"
+  Zip: "37421" 
+---  
+
+```{r, echo=FALSE, results='hide'}
+knitr::opts_chunk$set(echo =FALSE,
+                      include=FALSE, 
+                      echo=FALSE, 
+                      warning=FALSE, 
+                      messages=FALSE)
+
+```
+
+```{r, echo=FALSE}
+library(tidyverse)
+library(purrr)
+library(gt)
+```
+
+ 
+```{r, echo=FALSE} 
+
+library(readxl)
+adr <- read_excel("D:/D_Documents/GitHub-DasRotRad/ogls_Template/data/addresses10.xlsx")
+View(adr)
+
+
+
+
+
+
+```
+
+## Creating Parameterized Reports  
+By: Robert Cline, Sr. *rccline@fastmail.fm*  
+
+Creating Parameterized reports in Rmarkdown was a difficult learning process for me.  In the examples I found, including literature and videos, multiple reports were generated using only one variable.  What I needed were reports that iterated through records, with multiple variables within each record being utilized in each report.  Step two was to include Related Records from another table.  
+
+
+* My introduction to Parameterized reports was initally inspired by David Keyes' tutorial posted on his blog October 15, 2020.  
+*  [David Keyes' Parameterized Reporting with RMarkdown](https://rfortherestofus.com/2020/10/parameterized-reporting-with-rmarkdown/)  
+* [Reference Video](https://www.youtube.com/watch?v=8eoncQ457Yg)  
+* [Names and addresses have been generated with "Fake Name Generator"](https://www.fakenamegenerator.com/) 
+
+I had conceptual difficulty understanding how to create multiple reports utilizing multiple variables between each record being iterated.  First, I needed to realize that the filtering of the report needed to be entirely in the Rmarkdown document and not in the Script that initiates the Knitting process.  The "bad code" is shown in my first attempt to filter the report.  The record index,"LessorID", was being iterated but the remaining variables within the record which I expected to be included in each separate report were not being iterated.  Only the index variable was being iterated.    
+  
+In this example, I filtered the parameter not on a variable name, but a pseudonym for the variable which has been named as a parameter in the YAML.  
+
+### Original Code Chunk - Fails to pass params to Rmd  
+* In the params section of the YAML, intead of LessorID= "1" as a parameter, I named the variable MyID = LessorID thinking this would be sufficient.     
+* The dataframe was then filtered in the Rmarkdown document using the following code:  
+ 
+### Bad Code Chunk
+```{r, echo=TRUE, include=TRUE, results=FALSE}
+
+
+adr %>%
+  filter(LessorID == params$MyID) %>%
+  # filter(LessorID <5) %>%
+  select(LessorID, FullName, Address, City, STATE, PostalCode)  %>%
+  rename(Zip="PostalCode")
+
+ 
+  
+```  
+ 
+### Problem Resolution:
+
+**Kent Johnson wrote in 4rds**:   After much trial and error, I submitted my dilemma to r4ds slack. Within hours I received advice from Kent Johnson, a slack channel mentor. 
+
+*Kent wrote:*  You are not passing the values that you want to print as params to the Rmd file. The only param is the LessorID. When you filter adr by LessorID, *you should save the filtered result to a new variable.*  Then use that variable to populate your form letter.  
+
+So, for example, you might write ***filtered_adr = adr %>% filter...***  and then in the letter, refer to ***filtered_adr$LastName***, etc.  
+
+### Corrected Code Chunk
+```{r, echo=TRUE, include=TRUE}
+
+filtered_adr = adr %>%
+  filter(LessorID == params$MyID) %>% 
+  # filter(LessorID <5) %>% 
+  select(LessorID, FullName, Address, City, STATE, PostalCode)  %>% 
+  rename(Zip="PostalCode") 
+
+ 
+  
+```  
+
+### Code for the inline params: 
+Your LessorID is **`r params$MyID`**    
+"` r filtered_adr$FullName` "  
+"` r filtered_adr$Address` "     
+"` r filtered_adr$City` "  
+
+
+### Including related table "tracts" in Report 
+* Import the related table into Rmarkdown  
+* Filter the related table using the YAML params
+* Create a table in the Report using the filtered dataframe as its datasource
+
+```{r}
+library(readxl)
+tracts0 <- read_excel("fake_oglsdata.xlsx", 
+    sheet = "LseTracts", col_types = c("numeric", 
+        "numeric", "numeric", "skip", "numeric", 
+        "numeric", "numeric", "numeric", 
+        "skip", "skip", "text", "skip", "numeric", 
+        "text", "numeric", "text", "numeric"))
+View(tracts0)
+```  
+
+
+```{r}
+tracts <- tracts0 %>% 
+  select(LessorID, LseTractID, "Gross Ac", "Net Ac", Sec, Twp, TwpDir, Rng, RngDir, Description) %>% 
+  rename(GrossAc= "Gross Ac", NetAc="Net Ac") %>% 
+  filter(LessorID !=  "NA") %>% 
+  filter(NetAc != "NA") %>% 
+  arrange(LessorID)
+```
+
+```{r, echo=TRUE, include=TRUE}
+
+filtered_tr = tracts %>%
+  filter(LessorID == params$MyID) %>% 
+  select(LessorID, GrossAc, NetAc, Sec) 
+
+ 
+  
+```  
+
+### Data Source for this example:  
+ “Generate a Random Name - Fake Name Generator.” Accessed December 26, 2020. https://www.fakenamegenerator.com/.
+
+ 
+
+\pagebreak  
+
+### Example of Reports using Parameters 
+ 
+`r format(Sys.time(), '%d %B, %Y')`  
+<br>  
+Dear Mr.`r params$LastName`:    
+<br>
+On this date of `r format(Sys.time(), '%d %B, %Y')`, we are requesting that you update your address with us if you find any errors.  We have your address and LessorID as follows:  
+ <br>
+ 
+Your LessorID is **`r params$MyID`**  
+`r params$FullName`  
+`r params$Address`  
+`r params$City`, `r params$STATE` `r params$Zip`  
+
+
+### Corrected inline Params
+**These are the passed params**  
+Your LeaseID is **`r params$MyID`**  
+`r filtered_adr$FullName`  
+`r filtered_adr$Address`   
+`r filtered_adr$City`, `r filtered_adr$STATE` `r filtered_adr$Zip`  
+ 
+### Add related table to Report  
+**Your Tracts are:**
+
+```{r, include=TRUE}
+library(gt)
+filtered_tr %>% 
+gt()
+#%>%
+# tab_header(
+#    title = "S&P 500") #,
+#    subtitle = glue::glue("{start_date} to {end_date}"))
+```
+

@@ -12,9 +12,6 @@ jobs:
         
       - name: Run Super-Linter
         uses: github/super-linter@4
-        with:
-          node-version: 16.13.x
-          cache: npm
         env:
           DEFAULT_BRANCH: master
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  
